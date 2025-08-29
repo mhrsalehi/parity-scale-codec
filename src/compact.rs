@@ -1057,4 +1057,32 @@ mod tests {
 		u64 : u64_roundtrip,
 		u128 : u128_roundtrip
 	}
+
+
+	#[test]
+	fn generate_u8_tests_for_polkadot4j() {
+		use hex::encode;
+		type T = u128;
+		let mut x : T = 1;
+		let mut test_vectors: Vec<(T, String)> = Vec::new();
+		let mut done = false;
+		while x <= T::MAX {
+			test_vectors.push((x - 1, encode(Compact(x - 1).encode())));
+			test_vectors.push((x, encode(Compact(x).encode())));
+			if x < T::MAX {
+				test_vectors.push((x + 1, encode(Compact(x + 1).encode())));
+			}
+			if done {
+				break;
+			}
+			x = x << 1;
+			if x == 0 {
+				x = T::MAX;
+				done = true;
+			}
+		}
+		for i in test_vectors.iter() {
+			println!("t(new BigInteger(\"{:?}\"), {:?}),", i.0, i.1);
+		}
+	}
 }
