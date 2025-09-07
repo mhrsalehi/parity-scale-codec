@@ -337,8 +337,9 @@ impl Encode for CompactRef<'_, u32> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
-				((*self.0 << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => {
+				((*self.0 << 2) | 0b10).encode_to(dest)
+			},
 			_ => {
 				dest.push_byte(0b11);
 				self.0.encode_to(dest);
@@ -373,8 +374,9 @@ impl Encode for CompactRef<'_, u64> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
-				(((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => {
+				(((*self.0 as u32) << 2) | 0b10).encode_to(dest)
+			},
 			_ => {
 				let bytes_needed = 8 - self.0.leading_zeros() / 8;
 				assert!(
@@ -419,8 +421,9 @@ impl Encode for CompactRef<'_, u128> {
 		match self.0 {
 			0..=0b0011_1111 => dest.push_byte((*self.0 as u8) << 2),
 			0..=0b0011_1111_1111_1111 => (((*self.0 as u16) << 2) | 0b01).encode_to(dest),
-			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 =>
-				(((*self.0 as u32) << 2) | 0b10).encode_to(dest),
+			0..=0b0011_1111_1111_1111_1111_1111_1111_1111 => {
+				(((*self.0 as u32) << 2) | 0b10).encode_to(dest)
+			},
 			_ => {
 				let bytes_needed = 16 - self.0.leading_zeros() / 8;
 				assert!(
@@ -687,6 +690,7 @@ impl DecodeWithMemTracking for Compact<u128> {}
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use hex::encode;
 
 	#[test]
 	fn prefix_input_empty_read_unchanged() {
@@ -1058,19 +1062,18 @@ mod tests {
 		u128 : u128_roundtrip
 	}
 
-
 	#[test]
 	fn generate_u8_tests_for_polkadot4j() {
 		use hex::encode;
 		type T = u128;
-		let mut x : T = 1;
+		let mut x: T = 1;
 		let mut test_vectors: Vec<(T, String)> = Vec::new();
 		let mut done = false;
 		while x <= T::MAX {
-			test_vectors.push((x - 1, encode(Compact(x - 1).encode())));
-			test_vectors.push((x, encode(Compact(x).encode())));
+			test_vectors.push((x - 1, encode((x - 1).encode())));
+			test_vectors.push((x, encode((x).encode())));
 			if x < T::MAX {
-				test_vectors.push((x + 1, encode(Compact(x + 1).encode())));
+				test_vectors.push((x + 1, encode((x + 1).encode())));
 			}
 			if done {
 				break;
@@ -1083,6 +1086,141 @@ mod tests {
 		}
 		for i in test_vectors.iter() {
 			println!("t(new BigInteger(\"{:?}\"), {:?}),", i.0, i.1);
+			// println!("t({:?}L, {:?}),", i.0, i.1);
 		}
+	}
+
+	#[test]
+	fn generate_u8_tests_for_polkadot4j_uuuuu() {
+		use hex::encode;
+		type T = u128;
+		type T2 = i128;
+		let mut x: T = 1;
+		let mut test_vectors: Vec<(T2, String)> = Vec::new();
+		let mut done = false;
+		while x <= T::MAX {
+			test_vectors.push(((x - 1) as T2, encode(((x - 1) as T2).encode())));
+			test_vectors.push((x as T2, encode((x as T2).encode())));
+			if x < T::MAX {
+				test_vectors.push(((x + 1) as T2, encode(((x + 1) as T2).encode())));
+			}
+			if done {
+				break;
+			}
+			x = x << 1;
+			if x == 0 {
+				x = T::MAX;
+				done = true;
+			}
+		}
+		x = 1;
+		done = false;
+		while x <= T::MAX {
+			let y = x;
+			x = x | (1 << 127);
+			test_vectors.push(((x - 1) as T2, encode(((x - 1) as T2).encode())));
+			test_vectors.push((x as T2, encode((x as T2).encode())));
+			if x < T::MAX {
+				test_vectors.push(((x + 1) as T2, encode(((x + 1) as T2).encode())));
+			}
+			if done {
+				break;
+			}
+			x = x << 1;
+			if x == 0 {
+				x = T::MAX;
+				done = true;
+			}
+		}
+		test_vectors.sort_by(|a, b| a.1.cmp(&b.1));
+		test_vectors.dedup();
+		for i in test_vectors.iter() {
+			println!("t(new BigInteger(\"{:?}\"), {:?}),", i.0, i.1);
+			// println!("t({:?}L, {:?}),", i.0, i.1);
+		}
+	}
+
+	use parity_scale_codec_derive::Encode;
+	#[derive(Encode, Debug)]
+	struct S<T> {
+		b1: bool,
+		b2: bool,
+		str1: String,
+		str2: String,
+		u8_1: u8,
+		u8_2: u8,
+		u16_1: u16,
+		u16_2: u16,
+		u32_1: u32,
+		u32_2: u32,
+		u64: u64,
+		u128: u128,
+		i8_1: i8,
+		i8_2: i8,
+		i16_1: i16,
+		i16_2: i16,
+		i32_1: i32,
+		i32_2: i32,
+		i64_1: i64,
+		i64_2: i64,
+		i128: i128,
+		arr_u8_1: [u8; 7],
+		seq_u8_1: Vec<u8>,
+		arr_u8_2: [u8; 7],
+		seq_u8_2: Vec<u8>,
+		t: T,
+		arr_t: [T; 2],
+		seq_t: Vec<T>,
+	}
+
+	#[derive(Encode, Debug)]
+	struct S1 {
+		b: bool,
+		u32: u32,
+		str: String,
+	}
+	#[test]
+	fn gen_composite() {
+		let s1: S1 = S1 { b: true, u32: 137, str: "hello world".to_string() };
+		let s: S<S1> = S {
+			b1: false,
+			b2: true,
+			str1: "".to_string(),
+			str2: "Mehrdad Salehi".to_string(),
+			u8_1: u8::MIN,
+			u8_2: u8::MAX,
+			u16_1: u16::MIN,
+			u16_2: u16::MAX,
+			u32_1: u32::MIN,
+			u32_2: u32::MAX,
+			u64: u64::MAX,
+			u128: u128::MAX,
+			i8_1: i8::MIN,
+			i8_2: i8::MAX,
+			i16_1: i16::MIN,
+			i16_2: i16::MAX,
+			i32_1: i32::MIN,
+			i32_2: i32::MAX,
+			i64_1: i64::MIN,
+			i64_2: i64::MAX,
+			i128: i128::MAX,
+			arr_u8_1: [2, 3, 5, 7, 11, 13, 17],
+			seq_u8_1: vec![2, 3, 5, 7, 11, 13, 17, 19],
+			arr_u8_2: [2, 3, 5, 7, 11, 13, 17],
+			seq_u8_2: vec![2, 3, 5, 7, 11, 13, 17, 19],
+			t: S1 { b: false, u32: 0, str: "Java Rust".to_string() },
+			arr_t: [
+				S1 { b: false, u32: 0, str: "Java Rust 1".to_string() },
+				S1 { b: true, u32: 0, str: "Java Rust 2".to_string() },
+			],
+			seq_t: vec![
+				S1 { b: true, u32: 0, str: "Java Rust 3".to_string() },
+				S1 { b: false, u32: 0, str: "Java Rust 4".to_string() },
+			],
+		};
+		let encoded = s.encode();
+		let hex = encode(encoded);
+		println!("{:?}", s);
+		println!("{:?}", hex);
 	}
 }
